@@ -1,5 +1,8 @@
 pipeline {
     agent any
+    environment {
+        TAG_DYNAMIC = "${env.GIT_BRANCH.replaceFirst('^origin/', '')}-${env.BUILD_ID}"
+        } 
     stages {
         stage('Cleanup') {
             steps {
@@ -13,34 +16,43 @@ pipeline {
             }
         }
 
-        stage('Listing files') {
+
+        stage('') {
             steps {
-                sh 'ls -l'
+                sh '''
+                    docker stop temp_container
+                    docker rm temp_container
+                    docker build -t saroj/static-website:v1 .
+                    docker run -d -p 8081:80 --name temp_container saroj/static-website:v1
+                    curl -I localhost:8081
+                '''
             }
         }
 
         stage('Build and Push') {
             steps {
                 echo 'Building..'
-                dir('app'){
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub-auth', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                        sh '''
-                            docker build -t yonjan/static-website:v1 .
-                            docker login -u ${USERNAME} -p ${PASSWORD}
-                            docker push yonjan/static-website:v1
-                        '''
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                        sh "docker login -u ${USERNAME} -p ${PASSWORD}"
+                        sh "docker tag saroj/static-website:v1 saroj/stati-website:v1:${TAG_DYNAMIC}"
+                        sh "docker push saroj/static-website:v1:${TAG_DYNAMIC}"
                     }
-                }
             }
         }
 
-        stage('Deploy container'){
+        stage('Image push completed'){
             steps {
-                echo "deploying container"
-                sh 'docker stop static-website || true && docker rm static-website || true'
-                sh 'docker run --name stati-website -d -p 8082:80 yonjan/static:v1'
+                echo 'Completed...'
             }
         }
+
+        // stage('Deploy container'){
+        //     steps {
+        //         echo "deploying container"
+        //         sh 'docker stop todo-app || true && docker rm todo-app || true'
+        //         sh 'docker run --name todo-app -d -p 3000:3000 msalim22/todo-list-app:v2'
+        //     }
+        // }
 
         // This block is to deploy the container into another application server.
         // You need sshAgent Jenkins plugin to be installed (from Managed Jenkins -> Plugin) and SSH communication is enabled between Jenkins and Application server
