@@ -21,7 +21,7 @@ pipeline {
             steps {
                 sh '''
                     echo "iam here"
-                    docker stop temp_container
+                    docker stop temp_container || true
                     docker rm temp_container
                     docker build -t yonjan/static-website .
                     docker run -d -p 8081:80 --name temp_container yonjan/static-website
