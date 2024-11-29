@@ -20,6 +20,7 @@ pipeline {
         stage('') {
             steps {
                 sh '''
+                    echo "iam here"
                     docker stop temp_container
                     docker rm temp_container
                     docker build -t yonjan/static-website .
