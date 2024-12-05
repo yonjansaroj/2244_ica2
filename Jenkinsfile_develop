@@ -7,6 +7,7 @@ pipeline {
         stage('Set IMAGE_TAG') {
             steps {
                 script {
+                    // Generate a unique tag using the branch name and build ID
                     env.IMAGE_TAG = "${env.GIT_BRANCH.replaceFirst('^origin/', '')}-${env.BUILD_ID}"
                 }
             }
@@ -14,12 +15,14 @@ pipeline {
 
         stage('Cleanup') {
             steps {
+                // Clean the workspace before starting the build
                 cleanWs()
             }
         }
 
         stage('Clone Git Repo') {
             steps {
+                // Check out the source code from the configured SCM
                 checkout scm
             }
         }
@@ -28,14 +31,22 @@ pipeline {
             steps {
                 sh '''
                     echo "Starting Docker operations..."
+                    
+                    # Stop and remove the container if it already exists
                     if docker ps -a --format '{{.Names}}' | grep -q "^temp_container$"; then
                         docker stop temp_container
                         docker rm temp_container
                     else
                         echo "Container temp_container does not exist, skipping removal."
                     fi
+
+                    # Build the Docker image
                     docker build -t yonjan/static-website .
+
+                    # Run the Docker container
                     docker run -d -p 8081:80 --name temp_container yonjan/static-website
+
+                    # Test the running container
                     curl -I localhost:8081
                 '''
             }
@@ -46,10 +57,15 @@ pipeline {
                 echo 'Building and pushing Docker image...'
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                     sh '''
+                        echo "Logging in to DockerHub..."
                         docker login -u ${USERNAME} -p ${PASSWORD}
+                        echo "Docker login successful!"
+
+                        echo "Tagging the Docker image..."
                         docker tag yonjan/static-website yonjan/static-website:${IMAGE_TAG}
+                        
+                        echo "Pushing the Docker image with tag ${IMAGE_TAG}..."
                         docker push yonjan/static-website:${IMAGE_TAG}
-                        docker push yonjan/static-website
                     '''
                 }
             }
@@ -62,3 +78,4 @@ pipeline {
         }
     }
 }
+
