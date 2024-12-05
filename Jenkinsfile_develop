@@ -44,7 +44,7 @@ pipeline {
         stage('Build and Push') {
             steps {
                 echo 'Building and pushing Docker image...'
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                withCredentials([usernamePassword(credentialsId: 'login_to_docker', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                     sh '''
                         docker login -u ${USERNAME} -p ${PASSWORD}
                         docker tag yonjan/static-website yonjan/static-website:${IMAGE_TAG}
