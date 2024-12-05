@@ -1,9 +1,17 @@
 pipeline {
     agent any
     environment {
-        IMAGE_TAG = "${env.GIT_BRANCH.replaceFirst('^origin/', '')}-${env.BUILD_ID}"
-        } 
+        IMAGE_TAG = ''
+    }
     stages {
+        stage('Set IMAGE_TAG') {
+            steps {
+                script {
+                    env.IMAGE_TAG = "${env.GIT_BRANCH.replaceFirst('^origin/', '')}-${env.BUILD_ID}"
+                }
+            }
+        }
+
         stage('Cleanup') {
             steps {
                 cleanWs()
@@ -16,13 +24,16 @@ pipeline {
             }
         }
 
-
-        stage('') {
+        stage('Build and Run Docker') {
             steps {
                 sh '''
-                    echo "iam here"
-                    docker stop temp_container || true
-                    docker rm temp_container
+                    echo "Starting Docker operations..."
+                    if docker ps -a --format '{{.Names}}' | grep -q "^temp_container$"; then
+                        docker stop temp_container
+                        docker rm temp_container
+                    else
+                        echo "Container temp_container does not exist, skipping removal."
+                    fi
                     docker build -t yonjan/static-website .
                     docker run -d -p 8081:80 --name temp_container yonjan/static-website
                     curl -I localhost:8081
@@ -32,21 +43,22 @@ pipeline {
 
         stage('Build and Push') {
             steps {
-                echo 'Building..'
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
-                        sh "docker login -u ${USERNAME} -p ${PASSWORD}"
-                        sh "docker tag yonjan/static-website yonjan/static-website:${IMAGE_TAG}"
-                        sh "docker push yonjan/static-website:${IMAGE_TAG}"
-                        sh "docker push yonjan/static-website"
-                    }
+                echo 'Building and pushing Docker image...'
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                    sh '''
+                        docker login -u ${USERNAME} -p ${PASSWORD}
+                        docker tag yonjan/static-website yonjan/static-website:${IMAGE_TAG}
+                        docker push yonjan/static-website:${IMAGE_TAG}
+                        docker push yonjan/static-website
+                    '''
+                }
             }
         }
 
-        stage('Image push completed'){
+        stage('Image push completed') {
             steps {
-                echo 'Completed...'
+                echo 'Docker image build and push completed.'
             }
         }
- 
     }
 }
