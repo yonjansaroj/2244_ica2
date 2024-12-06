@@ -1,0 +1,38 @@
+pipeline {
+    agent any
+    environment {
+        IMAGE_TAG = "${env.GIT_BRANCH.replaceFirst('^origin/', '')}-${env.BUILD_ID}"
+        } 
+    stages {
+        stage('Cleanup') {
+            steps {
+                cleanWs()
+            }
+        }
+
+
+        stage('Pull image from Dockerhub') {
+            steps {
+                echo 'Building..'
+                    withCredentials([usernamePassword(credentialsId: 'docker_login', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                        sh "docker login -u ${USERNAME} -p ${PASSWORD}"
+                        sh "docker pull yonjan/static-website"
+                    }
+            }
+        }
+
+        stage('Create Container and Test'){
+            steps {
+                sh '''
+                    docker stop mywebsite
+                    docker rm mywebsite
+                    docker run -d -p 8082:80 --name mywebsite yonjan/static-website
+                    curl -I localhost:8082
+                    echo "success"
+                '''
+            }
+        }
+
+
+    }
+}
