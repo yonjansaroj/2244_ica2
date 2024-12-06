@@ -24,8 +24,8 @@ pipeline {
         stage('Create Container and Test'){
             steps {
                 sh '''
-                    docker stop mywebsite || true
-                    docker rm mywebsite || ture
+                    // docker stop mywebsite || true
+                    // docker rm mywebsite || true
                     docker run -d -p 8082:80 --name mywebsite yonjan/static-website
                     curl -I localhost:8082
                     echo "success"
